@@ -75,10 +75,7 @@ function getNavHTML(activePage) {
         <!-- 헤더 -->
         <div class="flex items-center justify-between py-3">
           <a href="index.html" class="flex items-center gap-3 no-underline text-white hover:opacity-90 transition">
-            <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <polygon points="50,5 93,27.5 93,72.5 50,95 7,72.5 7,27.5" fill="none" stroke="#1B3A5C" stroke-width="8"/>
-              <polygon points="50,20 80,37.5 80,62.5 50,80 20,62.5 20,37.5" fill="none" stroke="#C4A44E" stroke-width="6"/>
-            </svg>
+            <img src="logo.png" alt="SAB" width="36" height="36" style="object-fit:contain;">
             <div>
               <div class="font-bold text-lg leading-tight">추급권 정산 플랫폼</div>
               <div class="text-xs text-slate-400">Seoul Auction Blue</div>
