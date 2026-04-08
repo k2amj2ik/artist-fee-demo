@@ -1,10 +1,54 @@
 /**
- * App.js — 공통 로직 (네비게이션, 레이아웃, 유틸리티)
+ * App.js — 공통 로직 (네비게이션, 역할 관리, 레이아웃, 유틸리티)
  */
+
+// ── 역할(권한) 정의 ──────────────────────────
+const ROLES = {
+  admin:   { label: '시스템 관리자 (SAB)', icon: '🔧', color: 'bg-slate-600' },
+  auction: { label: '경매사 관리자', icon: '🏛️', color: 'bg-blue-600' },
+  gallery: { label: '갤러리 관리자', icon: '🖼️', color: 'bg-teal-600' },
+  artist:  { label: '작가', icon: '🎨', color: 'bg-orange-500' },
+  heir:    { label: '유족/상속인', icon: '👥', color: 'bg-amber-600' }
+};
+
+// 역할별 접근 가능 페이지
+const ROLE_PAGES = {
+  admin:   ['index', 'calculator', 'transactions', 'consignment', 'artists', 'settings'],
+  auction: ['index', 'calculator', 'transactions', 'consignment', 'artists'],
+  gallery: ['index', 'calculator', 'transactions', 'artists'],
+  artist:  ['index', 'calculator', 'artists'],
+  heir:    ['index', 'artists']
+};
+
+// 역할별 접근 가능 버튼/액션
+const ROLE_ACTIONS = {
+  admin:   ['register', 'invoice', 'report', 'export', 'settings', 'consignment'],
+  auction: ['register', 'invoice', 'report', 'export', 'consignment'],
+  gallery: ['register', 'report', 'export'],
+  artist:  [],
+  heir:    []
+};
+
+function getCurrentRole() {
+  return localStorage.getItem('arr_role') || 'admin';
+}
+
+function setCurrentRole(role) {
+  localStorage.setItem('arr_role', role);
+  location.reload();
+}
+
+function hasPageAccess(pageId) {
+  return ROLE_PAGES[getCurrentRole()]?.includes(pageId) ?? false;
+}
+
+function hasAction(action) {
+  return ROLE_ACTIONS[getCurrentRole()]?.includes(action) ?? false;
+}
 
 // ── 네비게이션 ──────────────────────────────
 function getNavHTML(activePage) {
-  const pages = [
+  const allPages = [
     { id: 'index', label: '대시보드', icon: '📊', href: 'index.html' },
     { id: 'calculator', label: '추급권 계산기', icon: '🧮', href: 'calculator.html' },
     { id: 'transactions', label: '거래 관리', icon: '📋', href: 'transactions.html' },
@@ -12,6 +56,14 @@ function getNavHTML(activePage) {
     { id: 'artists', label: '작가 DB', icon: '🎨', href: 'artists.html' },
     { id: 'settings', label: '관리자 설정', icon: '⚙️', href: 'settings.html' }
   ];
+
+  const role = getCurrentRole();
+  const roleInfo = ROLES[role];
+  const pages = allPages.filter(p => ROLE_PAGES[role]?.includes(p.id));
+
+  const roleOptions = Object.entries(ROLES).map(([k, v]) =>
+    `<option value="${k}" ${k === role ? 'selected' : ''}>${v.icon} ${v.label}</option>`
+  ).join('');
 
   return `
     <nav class="bg-slate-800 text-white">
@@ -29,7 +81,15 @@ function getNavHTML(activePage) {
               <div class="text-xs text-slate-400">Seoul Auction Blue</div>
             </div>
           </div>
-          <div class="text-xs text-slate-400">시행 예정: 2027.10.23</div>
+          <!-- 역할 전환 -->
+          <div class="flex items-center gap-3">
+            <div class="text-xs text-slate-400 hidden sm:block">현재 역할:</div>
+            <select onchange="setCurrentRole(this.value)"
+              class="text-sm ${roleInfo.color} text-white rounded-lg px-3 py-1.5 border-0 cursor-pointer font-medium appearance-none pr-8"
+              style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22white%22%3E%3Cpath d=%22M7 10l5 5 5-5z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 8px center;">
+              ${roleOptions}
+            </select>
+          </div>
         </div>
         <!-- 메뉴 -->
         <div class="flex gap-1 -mb-px overflow-x-auto">
@@ -52,6 +112,11 @@ function getNavHTML(activePage) {
 function renderNav(activePage) {
   const navContainer = document.getElementById('nav');
   if (navContainer) navContainer.innerHTML = getNavHTML(activePage);
+
+  // 현재 페이지 접근 권한 없으면 대시보드로 이동
+  if (activePage !== 'index' && !hasPageAccess(activePage)) {
+    location.href = 'index.html';
+  }
 }
 
 // ── 페이지 레이아웃 ──────────────────────────
