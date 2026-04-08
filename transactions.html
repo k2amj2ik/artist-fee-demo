@@ -12,7 +12,10 @@
   <main class="max-w-7xl mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-slate-800">거래 관리 <span class="text-sm font-normal text-slate-400">(A-07)</span></h1>
-      <button onclick="exportCSV()" class="px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">📥 엑셀 다운로드</button>
+      <div class="flex gap-2">
+        <a href="register.html" class="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 font-medium">➕ 거래 등록하기</a>
+        <button onclick="exportCSV()" class="px-4 py-2 bg-white border rounded-lg text-sm hover:bg-gray-50">📥 엑셀 다운로드</button>
+      </div>
     </div>
 
     <!-- 필터 -->
