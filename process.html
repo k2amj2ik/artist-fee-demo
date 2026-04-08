@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAB 추급권 정산 프로세스</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #f5f5f5; overflow: auto; }
+
+  .container { padding: 32px; min-width: 3400px; }
+
+  h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; color: #1a1a1a; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; background: #fff; padding: 12px 20px; border-radius: 10px; border: 1px solid #e0e0e0; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+  .legend-box { width: 14px; height: 14px; border-radius: 3px; }
+  .legend-title { font-weight: 700; font-size: 13px; color: #333; margin-right: 8px; }
+
+  /* === CSS Grid Diagram === */
+  .diagram-wrapper { background: #fff; border-radius: 12px; border: 1px solid #ddd; overflow: visible; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+  /* Phase Headers - 8 columns grid */
+  .phase-header-row {
+    display: grid;
+    grid-template-columns: 170px repeat(7, 1fr);
+    border-bottom: 2px solid #ddd;
+  }
+  .phase-header-label { background: #fafafa; border-right: 2px solid #e0e0e0; padding: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #999; border-radius: 12px 0 0 0; }
+  .phase-header { text-align: center; font-size: 14px; font-weight: 700; color: #fff; padding: 12px 8px; }
+  .phase-header:last-child { border-radius: 0 12px 0 0; }
+  .phase-a { background: #4A7CFF; }
+  .phase-b { background: #7C4DFF; }
+  .phase-c { background: #FF6B35; }
+
+  /* Swimlane row - 8 columns grid */
+  .swimlane {
+    display: grid;
+    grid-template-columns: 170px repeat(7, 1fr);
+    border-bottom: 1px solid #eee;
+    min-height: 110px;
+  }
+  .swimlane:last-child { border-bottom: none; }
+
+  /* Role label */
+  .role-label { display: flex; align-items: center; justify-content: center; padding: 12px 8px; border-right: 2px solid #e0e0e0; background: #fafafa; }
+  .role-inner { text-align: center; }
+  .role-name { font-size: 13px; font-weight: 700; color: #333; line-height: 1.4; }
+  .role-sub { font-weight: 400; color: #888; font-size: 11px; }
+  .role-tag { font-size: 10px; color: #fff; padding: 2px 6px; border-radius: 3px; margin-top: 4px; display: inline-block; }
+  .tag-a { background: #4A7CFF; }
+  .tag-b { background: #7C4DFF; }
+  .tag-c { background: #FF6B35; }
+  .tag-all { background: #555; }
+  .tag-auto { background: #34C759; }
+
+  /* Grid cell */
+  .cell {
+    display: flex;
+    align-items: center;
+    padding: 12px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-right: 1px solid #e8e8e8;
+    position: relative;
+    min-height: 110px;
+  }
+  .cell:last-child { border-right: none; }
+
+  /* Alternating column backgrounds */
+  .cell:nth-child(even) { background: rgba(0,0,0,0.012); }
+  .cell:nth-child(odd) { background: transparent; }
+
+  /* Phase-specific tint on cells */
+  .cell-phase-a { }
+  .cell-phase-b { }
+  .cell-phase-c { }
+
+  /* Cell inner flex for nodes */
+  .cell-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  /* Process nodes */
+  .node { padding: 10px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; position: relative; white-space: nowrap; transition: all 0.2s; border: 2px solid transparent; flex-shrink: 0; }
+  .node:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10; }
+
+  /* Node colors by proposal */
+  .node-a { background: #E8F0FE; color: #1a56db; border-color: #4A7CFF; }
+  .node-b { background: #F3E8FF; color: #6025c0; border-color: #7C4DFF; }
+  .node-c { background: #FFF0EB; color: #c44a17; border-color: #FF6B35; }
+  .node-system { background: #E8E8E8; color: #444; border-color: #999; }
+  .node-auto { background: #E6F9EE; color: #0d7a3e; border-color: #34C759; border-style: dashed; }
+
+  /* State badges */
+  .state-badge { font-size: 9px; padding: 2px 6px; border-radius: 10px; color: #fff; position: absolute; top: -8px; right: -8px; }
+  .badge-required { background: #FF3B30; }
+  .badge-high { background: #FF9500; }
+  .badge-mid { background: #8E8E93; }
+
+  /* Arrows */
+  .arrow { color: #bbb; font-size: 18px; display: flex; align-items: center; flex-shrink: 0; }
+
+  /* Decision diamond */
+  .decision { width: 36px; height: 36px; background: #FFF3CD; border: 2px solid #FFC107; transform: rotate(45deg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; position: relative; }
+  .decision:hover { box-shadow: 0 4px 12px rgba(255,193,7,0.4); }
+  .decision-text { transform: rotate(-45deg); font-size: 9px; font-weight: 700; color: #856404; }
+
+  /* Tooltips */
+  .tooltip { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #fff; padding: 12px 16px; border-radius: 8px; font-size: 11px; line-height: 1.6; width: 280px; white-space: normal; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  .tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #1a1a1a; }
+  .node:hover .tooltip, .decision:hover .tooltip { display: block; }
+  .tooltip-title { font-weight: 700; font-size: 12px; margin-bottom: 4px; color: #7CB3FF; }
+  .tooltip-id { font-size: 10px; color: #aaa; margin-bottom: 6px; }
+
+  /* Functional ID tag */
+  .func-id { font-size: 9px; color: #999; display: block; margin-top: 2px; font-weight: 400; }
+
+  /* Note box */
+  .note { background: #FFFDE7; border: 1px solid #FFF176; border-radius: 6px; padding: 6px 10px; font-size: 10px; color: #666; max-width: 200px; white-space: normal; line-height: 1.4; flex-shrink: 0; }
+  .note-icon { margin-right: 4px; }
+
+  /* Group box */
+  .group-box { border: 1px dashed #ccc; border-radius: 8px; padding: 8px 12px; display: flex; gap: 8px; align-items: center; position: relative; flex-shrink: 0; }
+  .group-label { position: absolute; top: -10px; left: 12px; font-size: 10px; color: #999; background: #fff; padding: 0 4px; }
+
+  /* Scroll hint */
+  .scroll-hint { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px; z-index: 50; opacity: 0.8; transition: opacity 0.3s; }
+
+  /* Empty cell marker */
+  .cell-empty { }
+
+  /* Highlighted rows */
+  .row-highlight-b { }
+  .row-highlight-b .cell { background: rgba(124,77,255,0.015); }
+  .row-highlight-b .cell:nth-child(even) { background: rgba(124,77,255,0.03); }
+
+  .row-highlight-c { }
+  .row-highlight-c .cell { background: rgba(255,107,53,0.015); }
+  .row-highlight-c .cell:nth-child(even) { background: rgba(255,107,53,0.03); }
+
+  .row-highlight-auto { }
+  .row-highlight-auto .cell { background: rgba(52,199,89,0.02); }
+  .row-highlight-auto .cell:nth-child(even) { background: rgba(52,199,89,0.035); }
+</style>
+</head>
+<body>
+
+<div style="background:#1e293b; padding:8px 32px; display:flex; align-items:center; justify-content:space-between;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div style="width:32px; height:32px; background:#14b8a6; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:12px; color:white;">ARR</div>
+    <div>
+      <div style="font-weight:bold; font-size:16px; color:white;">프로세스 흐름도</div>
+      <div style="font-size:11px; color:#94a3b8;">추급권 정산 플랫폼 — Seoul Auction Blue</div>
+    </div>
+  </div>
+  <a href="index.html" style="color:#94a3b8; font-size:13px; text-decoration:none; padding:6px 16px; border:1px solid #475569; border-radius:8px;">← 대시보드로 돌아가기</a>
+</div>
+
+<div class="container">
+  <h1>SAB 추급권 정산 프로세스</h1>
+  <p class="subtitle">서울옥션블루 추급권 정산 플랫폼 — 1단계 + 2단계 + 3단계 전체 프로세스 | 기준일: 2026-04-08 | 시행령 미확정 사항 포함</p>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="legend-title">범례</span>
+    <div class="legend-item"><div class="legend-box" style="background:#E8F0FE; border:2px solid #4A7CFF;"></div> 1단계 기능 (경매사/갤러리)</div>
+    <div class="legend-item"><div class="legend-box" style="background:#F3E8FF; border:2px solid #7C4DFF;"></div> 2단계 기능 (징수단체 API 연동)</div>
+    <div class="legend-item"><div class="legend-box" style="background:#FFF0EB; border:2px solid #FF6B35;"></div> 3단계 기능 (작가/유족 포털)</div>
+    <div class="legend-item"><div class="legend-box" style="background:#E6F9EE; border:2px dashed #34C759;"></div> 시스템 자동 처리</div>
+    <div class="legend-item"><div class="legend-box" style="background:#E8E8E8; border:2px solid #999;"></div> 관리/설정</div>
+    <div class="legend-item"><div class="legend-box" style="background:#FFF3CD; border:2px solid #FFC107; transform:rotate(45deg); width:12px; height:12px;"></div> 판단/분기</div>
+    <div class="legend-item"><div class="legend-box" style="background:#FFFDE7; border:1px solid #FFF176;"></div> 참고 사항</div>
+    <div class="legend-item"><span style="background:#FF3B30; color:#fff; padding:1px 5px; border-radius:8px; font-size:9px;">필수</span> 우선순위 필수</div>
+    <div class="legend-item"><span style="background:#FF9500; color:#fff; padding:1px 5px; border-radius:8px; font-size:9px;">높음</span> 우선순위 높음</div>
+  </div>
+
+  <!-- Diagram -->
+  <div class="diagram-wrapper">
+
+    <!-- Phase Header Row -->
+    <div class="phase-header-row">
+      <div class="phase-header-label">역할</div>
+      <div class="phase-header phase-a">① 거래 준비</div>
+      <div class="phase-header phase-a" style="border-left: 1px solid rgba(255,255,255,0.3);">② 판별 &amp; 산정</div>
+      <div class="phase-header phase-a" style="border-left: 1px solid rgba(255,255,255,0.3);">③ 인보이스 &amp; 신고</div>
+      <div class="phase-header phase-b">④ 접수 &amp; 검증</div>
+      <div class="phase-header phase-b" style="border-left: 1px solid rgba(255,255,255,0.3);">⑤ 청구 &amp; 납부</div>
+      <div class="phase-header phase-b" style="border-left: 1px solid rgba(255,255,255,0.3);">⑥ 분배 &amp; 정산</div>
+      <div class="phase-header phase-c">⑦ 작가 포털 &amp; 관리</div>
+    </div>
+
+    <!-- ===== Row 1: 경매사 관리자 ===== -->
+    <div class="swimlane">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">경매사 관리자<br><span class="role-sub">(자체 시스템에서 API 연동)</span></div>
+          <span class="role-tag tag-a">1단계</span>
+        </div>
+      </div>
+
+      <!-- ① 거래 준비 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a">
+            위탁 접수
+            <span class="func-id">위탁 계약</span>
+            <div class="tooltip">
+              <div class="tooltip-title">위탁(출품) 접수</div>
+              <div class="tooltip-id">선행 단계</div>
+              위탁자(소장자)로부터 경매 출품 작품 접수. 위탁 계약서에 추급권 관련 조항 자동 삽입.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            작가 DB 조회
+            <span class="func-id">A-06</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">작가 기본 데이터베이스</div>
+              <div class="tooltip-id">A-06 | 경매사, 갤러리, 시스템 관리자</div>
+              작가명·생몰년·국적 조회 → 추급권 존속 상태(존속/만료) 자동 판단. 서울옥션 경매 이력 데이터에서 초기 구축.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            위탁자 사전 안내
+            <span class="func-id">A-05</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">위탁자 사전 안내</div>
+              <div class="tooltip-id">A-05 | 경매사 관리자</div>
+              예상 낙찰가 범위(저/중/고) 입력 → 추급권료 예상 금액 시뮬레이션. 안내문 PDF 생성, 위탁자에게 전달. "추급권료는 낙찰대금에서 공제됩니다" 안내.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 판별 & 산정 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a">
+            경매 진행 / 낙찰
+            <span class="func-id">거래 실행</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-auto">
+            추급권 해당 여부 판별
+            <span class="func-id">A-01 (자동)</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">추급권 해당 여부 자동 판별</div>
+              <div class="tooltip-id">A-01 | 시스템 자동 → 경매사 확인</div>
+              5가지 자동 체크:<br>
+              ① 재판매 여부 (2차 이후)<br>
+              ② 전문 거래업자 관여 여부<br>
+              ③ 최소 금액 기준 (시행령 확정 시 변경)<br>
+              ④ 저작재산권 존속 (사후 70년 이내)<br>
+              ⑤ 예외 해당 여부<br>
+              → 적용 ○ / 적용 × + 사유 표시
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="decision">
+            <div class="decision-text">적용?</div>
+            <div class="tooltip" style="left: 0; transform: translateX(-40%);">
+              <div class="tooltip-title">추급권 적용 여부 판단</div>
+              적용 ○ → 추급권료 계산으로 진행<br>
+              적용 × → 미적용 사유 기록 후 일반 처리<br>
+              수동 재설정 가능 (예외 처리용)
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-auto">
+            추급권료 자동 계산
+            <span class="func-id">A-02 (자동)</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">추급권료 자동 계산</div>
+              <div class="tooltip-id">A-02 | 시스템 자동</div>
+              누진 비율 자동 적용 (EU 기준 참고, 시행령 확정 시 변경):<br>
+              · 300만 이하: 4%<br>
+              · 300만~3,000만: 3%<br>
+              · 3,000만~5,000만: 1%<br>
+              · 5,000만~10억: 0.5%<br>
+              · 10억 초과: 0.25%<br>
+              상한 금액 체크 + 해외 작가 환율 자동 적용
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 인보이스 & 신고 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a">
+            인보이스 추급권료 반영
+            <span class="func-id">A-03</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">인보이스 추급권료 반영</div>
+              <div class="tooltip-id">A-03 | 경매사 관리자</div>
+              낙찰 인보이스에 추급권료 별도 항목 자동 추가. 낙찰가 + 바이어 프리미엄 + 추급권료 = 합계. 법적 근거 문구 자동 삽입. 기존 경매 시스템(서울옥션)과 API 연동.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            거래 신고서 자동 생성
+            <span class="func-id">A-04</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">거래 신고서 자동 생성</div>
+              <div class="tooltip-id">A-04 | 경매사, 갤러리</div>
+              거래 완료 시 신고서 자동 생성(초안) → 관리자 확인 → 제출.<br>
+              포함: 작품정보, 거래정보, 당사자정보, 추급권료.<br>
+              1단계: PDF 다운로드/이메일 발송<br>
+              2단계: 징수단체 시스템 직접 전송 (API)
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            신고서 확인 &amp; 제출
+            <span class="func-id">A-04 (수동)</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            거래 이력 저장
+            <span class="func-id">A-07</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">거래 이력 관리</div>
+              <div class="tooltip-id">A-07 | 경매사, 갤러리</div>
+              추급권 적용 거래의 이력 체계적 관리·보관. 신고 상태: 미신고/신고완료/납부완료. 기간별, 작가별, 금액 구간별 필터. 엑셀 다운로드. 법적 보관 의무 대응.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-b">
+            징수단체 API 자동 전송
+            <span class="func-id">B-01</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">거래 신고 자동 전송</div>
+              <div class="tooltip-id">B-01 | 경매사, 갤러리 → 징수단체</div>
+              거래 완료 시 신고 데이터를 징수단체(SACK) API로 자동 전송. 전송 상태: 전송중/전송완료/전송실패. 실패 시 재전송 처리.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 접수 & 검증 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-b" style="opacity:0.85;">
+            신고 상태 추적
+            <span class="func-id">B-02</span>
+            <div class="tooltip">
+              <div class="tooltip-title">신고 상태 추적</div>
+              <div class="tooltip-id">B-02 | 경매사, 갤러리</div>
+              징수단체에 전송한 신고 건의 처리 상태를 실시간 추적. 접수됨/검증중/검증완료/보완요청 등 상태 확인.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ 청구 & 납부 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-b" style="opacity:0.85;">
+            청구서 수신
+            <span class="func-id">B-03 연동</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-b" style="opacity:0.85;">
+            추급권료 납부
+            <span class="func-id">B-03 (온라인/이체)</span>
+            <div class="tooltip">
+              <div class="tooltip-title">청구서 수신/납부 연동</div>
+              <div class="tooltip-id">B-03 | 경매사</div>
+              징수단체로부터 청구서를 API로 자동 수신 → 온라인 납부 또는 계좌이체로 추급권료 납부. 납부 확인서 자동 수령.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            납부 확인서 수령
+            <span class="func-id">증빙 보관</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑥ 분배 & 정산 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑦ 작가 포털 (비어있음) -->
+      <div class="cell cell-empty"></div>
+    </div>
+
+    <!-- ===== Row 2: 갤러리 관리자 ===== -->
+    <div class="swimlane">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">갤러리 관리자<br><span class="role-sub">(웹 콘솔 직접 사용)</span></div>
+          <span class="role-tag tag-a">1단계</span>
+        </div>
+      </div>
+
+      <!-- ① 거래 준비 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="note">
+            <span class="note-icon">&#x1F4A1;</span>
+            경매사와 동일 프로세스 적용.<br>갤러리 재판매 거래에 대해<br>A-01~A-07 기능 동일 사용.<br>판매 방식(수의계약)만 다름.
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            작품 판매 등록
+            <span class="func-id">갤러리 거래</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 판별 & 산정 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            추급권 판별 &amp; 계산
+            <span class="func-id">A-01 → A-02</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 인보이스 & 신고 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a">
+            거래 신고서 생성/제출
+            <span class="func-id">A-04</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
+            거래 이력 관리
+            <span class="func-id">A-07</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④~⑦ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+    </div>
+
+    <!-- ===== Row 3: 위탁자(출품자) ===== -->
+    <div class="swimlane">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">위탁자(출품자)</div>
+          <span class="role-tag tag-a">1단계</span>
+        </div>
+      </div>
+
+      <!-- ① 거래 준비 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a" style="opacity:0.7;">
+            사전 안내 수령
+            <span class="func-id">A-05 수신</span>
+            <div class="tooltip">
+              <div class="tooltip-title">위탁자 사전 안내 수신</div>
+              <div class="tooltip-id">A-05 연동 | 안내 대상</div>
+              추급권료 예상 금액을 사전에 안내받음. 예상 낙찰가별 추급권료 시뮬레이션 결과 포함. "추급권료는 낙찰대금에서 공제" 고지.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 판별 & 산정 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ③ 인보이스 & 신고 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-a" style="opacity:0.7;">
+            인보이스 확인
+            <span class="func-id">A-03 수신</span>
+            <div class="tooltip">
+              <div class="tooltip-title">인보이스 확인</div>
+              낙찰 후 인보이스에서 추급권료 항목 확인. 추급권료는 낙찰대금에서 공제되어 징수단체를 통해 작가에게 지급됨.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④~⑦ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+    </div>
+
+    <!-- ===== Row 4: 징수단체 관리자 ===== -->
+    <div class="swimlane row-highlight-b" style="min-height: 140px;">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">징수단체 관리자<br><span class="role-sub">(SACK 등)</span></div>
+          <span class="role-tag tag-b">2단계</span>
+          <div style="font-size: 10px; color: #7C4DFF; margin-top: 4px;">자체 시스템 보유<br>API 연동</div>
+        </div>
+      </div>
+
+      <!-- ①~③ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+
+      <!-- ④ 접수 & 검증 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="note" style="background: #F3E8FF; border-color: #D1C4E9;">
+            <span class="note-icon">&#x1F517;</span>
+            징수단체 자체 시스템에서 처리<br>(API로 상태 정보 수신)
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ 청구 & 납부 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="note" style="background: #F3E8FF; border-color: #D1C4E9;">
+            <span class="note-icon">&#x1F517;</span>
+            징수단체 자체 시스템에서 처리<br>(API로 청구서/납부 정보 송수신)
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑥ 분배 & 정산 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="note" style="background: #F3E8FF; border-color: #D1C4E9;">
+            <span class="note-icon">&#x1F517;</span>
+            징수단체 자체 시스템에서 처리<br>(분배/정산은 징수단체 자체 수행)
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑦ 작가 포털 (비어있음) -->
+      <div class="cell cell-empty"></div>
+    </div>
+
+    <!-- ===== Row 5: 시스템 관리자 ===== -->
+    <div class="swimlane">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">시스템 관리자<br><span class="role-sub">(SAB 내부)</span></div>
+          <span class="role-tag tag-all">1/2/3단계</span>
+        </div>
+      </div>
+
+      <!-- ① 거래 준비 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-system">
+            비율 설정 관리
+            <span class="func-id">A-08</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">추급권 비율 설정 관리</div>
+              <div class="tooltip-id">A-08 | 시스템 관리자</div>
+              시행령 비율·구간·상한 설정. 최소 적용 금액, 추급권료 상한, 적용 시작일, 환율 기준 설정. 변경 이력 기록 (감사 추적). 시행령 확정 시 즉시 반영 가능.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-system">
+            작가 DB 초기 구축
+            <span class="func-id">A-06 설정</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 판별 & 산정 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ③ 인보이스 & 신고 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ④ 접수 & 검증 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-b" style="background: #f0e6ff;">
+            작가 DB 강화 (SACK/CROS 연동)
+            <span class="func-id">B-05</span>
+            <span class="state-badge badge-high">높음</span>
+            <div class="tooltip">
+              <div class="tooltip-title">작가 DB 강화</div>
+              <div class="tooltip-id">B-05 | 시스템 관리자</div>
+              외부 연동: SACK 신탁계약(상속인), CISAC 네트워크(해외 작가), CROS(저작권 등록). 작가 계좌, 해외 작가 상호주의 대상 확인. 징수단체 API를 통해 작가 정보 동기화.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ 청구 & 납부 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑥ 분배 & 정산 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑦ 작가 포털 & 관리 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-c" style="background: #fff5f0;">
+            국제 상호주의 처리
+            <span class="func-id">C-07</span>
+            <span class="state-badge badge-mid">중간</span>
+            <div class="tooltip">
+              <div class="tooltip-title">국제 상호주의 처리</div>
+              <div class="tooltip-id">C-07 | 시스템 관리자, 징수단체</div>
+              해외 작가의 국내 재판매, 한국 작가의 해외 재판매. 국가별 추급권 적용 기준 상이 — 국가별 구분 관리.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-system">
+            플랫폼 운영 &amp; 모니터링
+            <span class="func-id">공통</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Row 6: 작가 ===== -->
+    <div class="swimlane row-highlight-c" style="min-height: 130px;">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">작가</div>
+          <span class="role-tag tag-c">3단계</span>
+        </div>
+      </div>
+
+      <!-- ①~⑥ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑦ 작가 포털 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="group-box" style="border-color: #FF6B35;">
+            <span class="group-label" style="color: #FF6B35;">작가 포털 가입</span>
+            <div class="node node-c">
+              회원가입 &amp; 본인 인증
+              <span class="func-id">C-03</span>
+              <span class="state-badge badge-required">필수</span>
+              <div class="tooltip">
+                <div class="tooltip-title">작가 프로필/작품 등록</div>
+                <div class="tooltip-id">C-03 | 작가</div>
+                ① 회원가입 (이메일/소셜)<br>
+                ② 본인 인증 (휴대폰/신분증)<br>
+                ③ 프로필 작성 (이름, 생년월일, 국적, 활동분야)<br>
+                ④ 작품 목록 등록<br>
+                ⑤ 추급권료 수령 계좌 등록
+              </div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node node-c">
+              작품 목록 등록
+              <span class="func-id">C-03</span>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node node-c">
+              수령 계좌 등록
+              <span class="func-id">C-03</span>
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c">
+            추급권료 시뮬레이터
+            <span class="func-id">C-02</span>
+            <span class="state-badge badge-mid">중간</span>
+            <div class="tooltip">
+              <div class="tooltip-title">추급권료 시뮬레이터</div>
+              <div class="tooltip-id">C-02 | 작가</div>
+              "내 작품이 얼마에 팔리면?" 직접 확인. 예상 판매가 입력/슬라이더 → 구간별 계산 상세. 비슷한 작가의 최근 낙찰가 범위 참고.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="border-width: 3px;">
+            &#x1F514; 재판매 알림 수신
+            <span class="func-id">C-01</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">내 작품 재판매 알림</div>
+              <div class="tooltip-id">C-01 | 작가, 유족</div>
+              작품 재판매 시 실시간 알림. 작품명, 판매장소, 판매가, 거래일. 예상 추급권료. 정산 진행 상태 (신고됨→청구됨→납부됨→분배됨). 앱 푸시, 이메일, 문자.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c">
+            정산 내역 확인
+            <span class="func-id">C-05</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">정산 내역 확인</div>
+              <div class="tooltip-id">C-05 | 작가, 유족</div>
+              작품별 재판매 이력, 추급권료 산정 내역 (구간별 상세), 수수료 공제 내역, 실 지급 금액 및 입금일, 누적 수령 금액. 투명한 정산 확인.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c">
+            추급권료 수령
+            <span class="func-id">B-04 연동</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="opacity: 0.8;">
+            상속인 사전 등록
+            <span class="func-id">C-04</span>
+            <span class="state-badge badge-high">높음</span>
+            <div class="tooltip">
+              <div class="tooltip-title">상속 관리 (생전)</div>
+              <div class="tooltip-id">C-04 | 작가 (생전 사전 등록)</div>
+              상속인 미리 등록 (이름, 연락처, 관계). 복수 상속인 간 분배 비율 설정.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Row 7: 유족/상속인 ===== -->
+    <div class="swimlane row-highlight-c">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">유족/상속인</div>
+          <span class="role-tag tag-c">3단계</span>
+        </div>
+      </div>
+
+      <!-- ①~⑤ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑥ 분배 & 정산 (비어있음) -->
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑦ 작가 포털 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="group-box" style="border-color: #FF6B35;">
+            <span class="group-label" style="color: #FF6B35;">상속 승계 절차</span>
+            <div class="node node-c">
+              상속인 신청
+              <span class="func-id">C-04</span>
+              <span class="state-badge badge-high">높음</span>
+              <div class="tooltip">
+                <div class="tooltip-title">상속 관리 (사후 승계)</div>
+                <div class="tooltip-id">C-04 | 유족</div>
+                ① 유족이 상속인 신청<br>
+                ② 증빙 서류 업로드 (사망증명서, 가족관계증명서)<br>
+                ③ 징수단체 자동 전달 → 검증<br>
+                ④ 승인 시 작가 계정 → 유족 계정 전환
+              </div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node node-c">
+              증빙 서류 업로드
+              <span class="func-id">C-04</span>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node node-auto">
+              징수단체 검증
+              <span class="func-id">C-04 (자동 전달)</span>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node node-c">
+              계정 전환
+              <span class="func-id">C-04</span>
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="opacity: 0.85;">
+            &#x1F514; 재판매 알림 수신
+            <span class="func-id">C-01</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="opacity: 0.85;">
+            정산 내역 확인
+            <span class="func-id">C-05</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c">
+            추급권료 수령
+            <span class="func-id">B-04 연동</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Row 8: 작가 에이전시 ===== -->
+    <div class="swimlane">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">작가 에이전시</div>
+          <span class="role-tag tag-c">3단계</span>
+        </div>
+      </div>
+
+      <!-- ①~⑥ 비어있음 -->
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+      <div class="cell cell-empty"></div>
+
+      <!-- ⑦ 작가 포털 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="note">
+            <span class="note-icon">&#x1F4A1;</span>
+            소속 작가를 일괄 관리하는 매니지먼트. 작가 포털(C)에서 에이전시 계정으로 복수 작가 관리 가능.
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="opacity:0.7;">
+            소속 작가 일괄 관리
+            <span class="func-id">C-03 확장</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-c" style="opacity:0.7;">
+            소속 작가 정산 현황 조회
+            <span class="func-id">C-05 확장</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Row 9: 시스템 (자동 처리) ===== -->
+    <div class="swimlane row-highlight-auto" style="min-height: 100px;">
+      <div class="role-label">
+        <div class="role-inner">
+          <div class="role-name">시스템<br><span class="role-sub">(자동 처리)</span></div>
+          <span class="role-tag tag-auto">자동</span>
+        </div>
+      </div>
+
+      <!-- ① 거래 준비 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            작가 DB 자동 매칭
+            <span class="func-id">A-06 → A-01</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 판별 & 산정 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            5가지 체크 자동 실행
+            <span class="func-id">A-01</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-auto">
+            누진 비율 자동 계산
+            <span class="func-id">A-02</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 인보이스 & 신고 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            인보이스 자동 반영
+            <span class="func-id">A-03 API</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-auto">
+            신고서 초안 자동 생성
+            <span class="func-id">A-04</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ 접수 & 검증 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            징수단체 API 자동 전송
+            <span class="func-id">B-01</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑤ 청구 & 납부 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            신고 상태 자동 조회
+            <span class="func-id">B-02</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑥ 분배 & 정산 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            청구서 수신 자동 처리
+            <span class="func-id">B-03</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ⑦ 작가 포털 -->
+      <div class="cell">
+        <div class="cell-flow">
+          <div class="node node-auto">
+            재판매 알림 발송
+            <span class="func-id">C-01</span>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-auto">
+            상호주의 자동 판단
+            <span class="func-id">C-07</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /diagram-wrapper -->
+
+  <!-- Additional info cards -->
+  <div style="margin-top: 24px; display: flex; gap: 20px; flex-wrap: wrap;">
+    <div style="background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 20px; flex: 1; min-width: 300px;">
+      <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #4A7CFF;">&#x1F4CB; 1단계 — 경매사/갤러리 업무 지원 (8개월)</h3>
+      <div style="font-size: 12px; color: #555; line-height: 1.8;">
+        <strong>핵심:</strong> 법적 의무 이행 필수 시스템<br>
+        <strong>기능:</strong> A-01 해당 여부 판별 → A-02 자동 계산 → A-03 인보이스 반영 → A-04 신고서 생성 → A-05 위탁자 안내 → A-06 작가 DB → A-07 거래 이력 → A-08 비율 설정<br>
+        <strong>기간:</strong> 8개월 | <strong>연 수익:</strong> 3.9억 | <strong>투자 회수:</strong> ~6개월
+      </div>
+    </div>
+    <div style="background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 20px; flex: 1; min-width: 300px;">
+      <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #7C4DFF;">&#x1F4CB; 2단계 — 징수단체 API 연동 (+4개월)</h3>
+      <div style="font-size: 12px; color: #555; line-height: 1.8;">
+        <strong>핵심:</strong> 징수단체 API 연동 (거래 신고 자동 전송)<br>
+        <strong>기능:</strong> B-01 거래 신고 자동 전송 → B-02 신고 상태 추적 → B-03 청구서 수신/납부 연동 → B-04 신고/납부 현황 대시보드 → B-05 작가 DB 강화<br>
+        <strong>기간:</strong> +4개월 | <strong>연 수익:</strong> 5.4억 | <strong>투자 회수:</strong> ~8개월
+      </div>
+    </div>
+    <div style="background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 20px; flex: 1; min-width: 300px;">
+      <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #FF6B35;">&#x1F4CB; 3단계 — 작가/유족 포털 (+6개월)</h3>
+      <div style="font-size: 12px; color: #555; line-height: 1.8;">
+        <strong>핵심:</strong> 시장 지배 — 작가 5만 명 확보<br>
+        <strong>기능:</strong> C-01 재판매 알림 → C-02 시뮬레이터 → C-03 프로필/작품 등록 → C-04 상속 관리 → C-05 정산 내역 → C-06 모바일 앱 → C-07 국제 상호주의<br>
+        <strong>기간:</strong> +6개월 | <strong>연 수익:</strong> 6.5억 | <strong>투자 회수:</strong> ~12개월
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 16px; background: #FFFDE7; border: 1px solid #FFF176; border-radius: 10px; padding: 16px 20px; font-size: 12px; color: #666; line-height: 1.6;">
+    <strong>&#x26A0;&#xFE0F; 유의사항:</strong> 추급권료 비율, 최소금액, 상한 등은 시행령(대통령령)에서 확정 예정입니다. 본 다이어그램의 수치는 EU 기준 참고값이며, 시행령 확정 시 변경될 수 있습니다.<br>
+    <strong>&#x1F4C5; 관련 일정:</strong> 미술서비스업 신고제 2026.07.26 시행 → 추급권 2027.10.23 시행. 신고제가 거래 인프라를 만들고, 추급권이 그 위에서 작동하는 구조입니다.
+  </div>
+</div>
+
+<div class="scroll-hint">← 좌우 스크롤하여 전체 프로세스를 확인하세요 →</div>
+
+<script>
+  // Hide scroll hint after scrolling
+  let scrolled = false;
+  window.addEventListener('scroll', () => {
+    if (!scrolled) {
+      scrolled = true;
+      setTimeout(() => {
+        const hint = document.querySelector('.scroll-hint');
+        if (hint) {
+          hint.style.opacity = '0';
+          setTimeout(() => hint.style.display = 'none', 300);
+        }
+      }, 2000);
+    }
+  });
+</script>
+
+</body>
+</html>
