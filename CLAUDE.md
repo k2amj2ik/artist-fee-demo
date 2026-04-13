@@ -23,8 +23,10 @@ demo/
   calculator.html      # 비용 계산기 — 판별(A-01) + 계산(A-02) + 인보이스(A-03) + 위탁 시뮬레이션(A-05) 통합
   transactions.html    # 거래 관리 — 목록, 필터, 인보이스, 신고서 + "거래 등록하기" 버튼
   register.html        # 거래 등록 — 갤러리 웹콘솔(직접 입력) / 서울옥션 API(자동 연동) 2채널
+  sales.html           # 세일 관리(A-09) — 세일/Lot 관리, 일괄 판별/신고 (경매사 전용)
   artists.html         # 작가 DB — 25명 검색/상세 + "작가 추가" 기능
-  settings.html        # 관리자 설정 — 비율 구간/상한 변경(A-08)
+  master.html          # 마스터 데이터(A-06) — 경매사/갤러리/작가 마스터 탭 관리
+  settings.html        # 관리자 설정 — 비율 구간/상한 변경(A-08) + 버전 관리
   logo.png             # SAB 로고
   js/
     arr-engine.js      # 핵심 엔진 — 판별, 계산, 인보이스, 신고서, 시뮬레이션

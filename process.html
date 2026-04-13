@@ -152,22 +152,9 @@
 </head>
 <body>
 
-<div style="background:#1e293b; padding:8px 32px; display:flex; align-items:center; justify-content:space-between;">
-  <div style="display:flex; align-items:center; gap:12px;">
-    <a href="index.html" style="display:flex; align-items:center; gap:12px; text-decoration:none;">
-      <img src="logo.png" alt="SAB" width="32" height="32" style="object-fit:contain;">
-      <div>
-        <div style="font-weight:bold; font-size:16px; color:white;">프로세스 흐름도</div>
-        <div style="font-size:11px; color:#94a3b8;">추급권 정산 플랫폼 — Seoul Auction Blue</div>
-      </div>
-    </a>
-  </div>
-  <a href="index.html" style="color:#94a3b8; font-size:13px; text-decoration:none; padding:6px 16px; border:1px solid #475569; border-radius:8px;">← 대시보드로 돌아가기</a>
-</div>
-
 <div class="container">
   <h1>SAB 추급권 정산 프로세스</h1>
-  <p class="subtitle">서울옥션블루 추급권 정산 플랫폼 — 1단계 + 2단계 + 3단계 전체 프로세스 | 기준일: 2026-04-08 | 시행령 미확정 사항 포함</p>
+  <p class="subtitle">서울옥션블루 추급권 정산 플랫폼 — 1단계 + 2단계 + 3단계 전체 프로세스 (A:9 + B:5 + C:7 + COM:6 = 27건) | 기준일: 2026-04-14 | 시행령 미확정 사항 포함</p>
 
   <!-- Legend -->
   <div class="legend">
@@ -211,6 +198,19 @@
       <div class="cell">
         <div class="cell-flow">
           <div class="node node-a">
+            세일/Lot 등록
+            <span class="func-id">A-09</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">경매(세일) 관리</div>
+              <div class="tooltip-id">A-09 | 경매사 관리자, 시스템 관리자</div>
+              세일(경매 차수) 정보 등록 + 소속 Lot 묶음 관리.<br>
+              서울옥션 API에서 세일/Lot 데이터 자동 수신.<br>
+              세일 단위 일괄 판별, 일괄 신고 가능.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-a">
             위탁 접수
             <span class="func-id">위탁 계약</span>
             <div class="tooltip">
@@ -221,13 +221,15 @@
           </div>
           <span class="arrow">→</span>
           <div class="node node-a">
-            작가 DB 조회
+            기초 데이터 조회
             <span class="func-id">A-06</span>
             <span class="state-badge badge-required">필수</span>
             <div class="tooltip">
-              <div class="tooltip-title">작가 기본 데이터베이스</div>
+              <div class="tooltip-title">기초 데이터 관리 (작가·경매사·갤러리)</div>
               <div class="tooltip-id">A-06 | 경매사, 갤러리, 시스템 관리자</div>
-              작가명·생몰년·국적 조회 → 추급권 존속 상태(존속/만료) 자동 판단. 서울옥션 경매 이력 데이터에서 초기 구축.
+              작가 마스터: 작가명·생몰년·국적 조회 → 추급권 존속 상태 자동 판단.<br>
+              경매사 마스터: 사업자등록번호, 미술서비스업 신고번호 관리.<br>
+              갤러리 마스터: 업종 구분, 담당자 정보 관리.
             </div>
           </div>
           <span class="arrow">→</span>
@@ -328,7 +330,14 @@
           <span class="arrow">→</span>
           <div class="node node-a">
             신고서 확인 &amp; 제출
-            <span class="func-id">A-04 (수동)</span>
+            <span class="func-id">A-04</span>
+            <div class="tooltip">
+              <div class="tooltip-title">거래 신고서 생성 (개별 / 일괄)</div>
+              <div class="tooltip-id">A-04 | 경매사, 갤러리</div>
+              개별 신고: 거래 건별 신고서 생성 → 확인 → 제출<br>
+              <strong>세일 단위 일괄 신고 (A-09 연동):</strong><br>
+              세일 상세에서 추급권 대상 Lot 선택 → 일괄 신고서 생성 → 일괄 제출
+            </div>
           </div>
           <span class="arrow">→</span>
           <div class="node node-a">
@@ -336,9 +345,11 @@
             <span class="func-id">A-07</span>
             <span class="state-badge badge-required">필수</span>
             <div class="tooltip">
-              <div class="tooltip-title">거래 이력 관리</div>
+              <div class="tooltip-title">거래 이력 관리 + 소유 이력 체인</div>
               <div class="tooltip-id">A-07 | 경매사, 갤러리</div>
-              추급권 적용 거래의 이력 체계적 관리·보관. 신고 상태: 미신고/신고완료/납부완료. 기간별, 작가별, 금액 구간별 필터. 엑셀 다운로드. 법적 보관 의무 대응.
+              경매: 세일별 조회 (세일>Lot 구조) / 갤러리: 전체 거래 조회.<br>
+              <strong>작품 소유 이력(Provenance):</strong> 같은 작품의 재판매 체인을 타임라인으로 연결.<br>
+              신고 상태: 미신고/신고완료/납부완료. 법적 보관 의무 대응.
             </div>
           </div>
           <span class="arrow">→</span>
@@ -362,9 +373,11 @@
             신고 상태 추적
             <span class="func-id">B-02</span>
             <div class="tooltip">
-              <div class="tooltip-title">신고 상태 추적</div>
+              <div class="tooltip-title">신고 상태 추적 + 보완 사유 관리</div>
               <div class="tooltip-id">B-02 | 경매사, 갤러리</div>
-              징수단체에 전송한 신고 건의 처리 상태를 실시간 추적. 접수됨/검증중/검증완료/보완요청 등 상태 확인.
+              징수단체에 전송한 신고 건의 처리 상태를 실시간 추적.<br>
+              상태: 접수됨/검증중/검증완료/보완요청/납부대기/납부완료.<br>
+              <strong>보완 요청 시:</strong> 사유 코드(작가정보 불일치, 거래정보 누락, 산정 오류, 증빙 부족, 기타) + 상세 내용 표시. 보완 이력 누적 기록.
             </div>
           </div>
         </div>
@@ -414,14 +427,22 @@
       <!-- ① 거래 준비 -->
       <div class="cell">
         <div class="cell-flow">
-          <div class="note">
-            <span class="note-icon">&#x1F4A1;</span>
-            경매사와 동일 프로세스 적용.<br>갤러리 재판매 거래에 대해<br>A-01~A-07 기능 동일 사용.<br>판매 방식(수의계약)만 다름.
+          <div class="node node-a">
+            거래 직접 등록
+            <span class="func-id">A-07 웹 콘솔</span>
+            <span class="state-badge badge-required">필수</span>
+            <div class="tooltip">
+              <div class="tooltip-title">갤러리 거래 등록 (웹 콘솔)</div>
+              <div class="tooltip-id">A-07 | 갤러리 관리자</div>
+              경매사와 달리 세일/Lot 개념 없이 개별 거래를 직접 등록.<br>
+              ① 작가 검색(A-06) → ② 작품 정보 입력 → ③ 거래 정보 입력<br>
+              판매 방식: 전시 판매 / 아트페어 / 프라이빗 세일 / 온라인 판매
+            </div>
           </div>
           <span class="arrow">→</span>
           <div class="node node-a">
-            작품 판매 등록
-            <span class="func-id">갤러리 거래</span>
+            기초 데이터 조회
+            <span class="func-id">A-06</span>
           </div>
         </div>
       </div>
@@ -432,6 +453,13 @@
           <div class="node node-auto">
             추급권 판별 &amp; 계산
             <span class="func-id">A-01 → A-02</span>
+            <div class="tooltip">
+              <div class="tooltip-title">자동 판별 &amp; 계산 (건건이 처리)</div>
+              <div class="tooltip-id">A-01 → A-02 | 경매사와 동일 엔진 사용</div>
+              거래 등록 완료 시 자동 실행.<br>
+              경매사는 세일 단위 일괄 판별이 가능하지만,<br>
+              갤러리는 개별 거래마다 건건이 처리.
+            </div>
           </div>
         </div>
       </div>
@@ -441,12 +469,18 @@
         <div class="cell-flow">
           <div class="node node-a">
             거래 신고서 생성/제출
-            <span class="func-id">A-04</span>
+            <span class="func-id">A-04 (개별)</span>
           </div>
           <span class="arrow">→</span>
           <div class="node node-a">
             거래 이력 관리
             <span class="func-id">A-07</span>
+            <div class="tooltip">
+              <div class="tooltip-title">거래 이력 관리 + 소유 이력 체인</div>
+              <div class="tooltip-id">A-07 | 경매사, 갤러리 공통</div>
+              전체 거래를 시간순 목록으로 조회.<br>
+              같은 작품의 재판매 이력(Provenance)을 연결하여 타임라인 표시.
+            </div>
           </div>
         </div>
       </div>
@@ -568,19 +602,36 @@
       <div class="cell">
         <div class="cell-flow">
           <div class="node node-system">
-            비율 설정 관리
+            비율 설정 (버전 관리)
             <span class="func-id">A-08</span>
             <span class="state-badge badge-required">필수</span>
             <div class="tooltip">
-              <div class="tooltip-title">추급권 비율 설정 관리</div>
+              <div class="tooltip-title">추급권 비율 설정 + 버전 관리</div>
               <div class="tooltip-id">A-08 | 시스템 관리자</div>
-              시행령 비율·구간·상한 설정. 최소 적용 금액, 추급권료 상한, 적용 시작일, 환율 기준 설정. 변경 이력 기록 (감사 추적). 시행령 확정 시 즉시 반영 가능.
+              시행령 비율·구간·상한 설정. 버전 번호 + 적용 시작/종료일로 이력 관리.<br>
+              과거 버전은 읽기 전용, 새 버전만 추가 가능.<br>
+              각 거래가 어떤 버전의 비율로 계산되었는지 추적.
             </div>
           </div>
           <span class="arrow">→</span>
           <div class="node node-system">
-            작가 DB 초기 구축
-            <span class="func-id">A-06 설정</span>
+            기초 데이터 초기 구축
+            <span class="func-id">A-06</span>
+            <div class="tooltip">
+              <div class="tooltip-title">기초 데이터 관리 (작가·경매사·갤러리)</div>
+              <div class="tooltip-id">A-06 | 시스템 관리자</div>
+              작가 마스터 초기 구축 + 경매사 마스터 + 갤러리 마스터 등록.
+            </div>
+          </div>
+          <span class="arrow">→</span>
+          <div class="node node-system">
+            콘텐츠 관리
+            <span class="func-id">COM-06</span>
+            <div class="tooltip">
+              <div class="tooltip-title">운영 콘텐츠 관리</div>
+              <div class="tooltip-id">COM-06 | 시스템 관리자</div>
+              갤러리 사용 가이드, 추급권 FAQ, 법률 안내 등을 관리자가 직접 편집·게시.
+            </div>
           </div>
         </div>
       </div>

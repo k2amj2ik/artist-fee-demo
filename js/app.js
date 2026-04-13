@@ -13,8 +13,8 @@ const ROLES = {
 
 // 역할별 접근 가능 페이지
 const ROLE_PAGES = {
-  admin:   ['process', 'index', 'calculator', 'transactions', 'artists', 'settings'],
-  auction: ['process', 'index', 'calculator', 'transactions', 'artists'],
+  admin:   ['process', 'index', 'calculator', 'transactions', 'sales', 'artists', 'master', 'settings'],
+  auction: ['process', 'index', 'calculator', 'transactions', 'sales', 'artists'],
   gallery: ['process', 'index', 'calculator', 'transactions', 'artists'],
   artist:  ['process', 'index', 'calculator', 'artists'],
   heir:    ['process', 'index', 'artists']
@@ -53,7 +53,9 @@ function getNavHTML(activePage) {
     { id: 'index', label: '대시보드', icon: '📊', href: 'index.html' },
     { id: 'calculator', label: '비용 계산기', icon: '🧮', href: 'calculator.html' },
     { id: 'transactions', label: '거래 관리', icon: '📋', href: 'transactions.html' },
+    { id: 'sales', label: '세일 관리', icon: '🏷️', href: 'sales.html' },
     { id: 'artists', label: '작가 DB', icon: '🎨', href: 'artists.html' },
+    { id: 'master', label: '마스터 데이터', icon: '🗂️', href: 'master.html' },
     { id: 'settings', label: '관리자 설정', icon: '⚙️', href: 'settings.html' }
   ];
 

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>세일 관리 — 추급권 정산 플랫폼</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen" data-page="sales">
+  <div id="nav"></div>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">경매(세일) 관리</h1>
+        <p class="text-sm text-slate-500 mt-1">A-09 | 세일(경매 차수) 정보 관리 + 소속 Lot 묶음 관리 — 경매사 전용</p>
+      </div>
+    </div>
+
+    <!-- 세일 목록 -->
+    <div class="bg-white rounded-xl border overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <h2 class="font-bold text-slate-700">세일 목록</h2>
+        <div class="flex gap-2">
+          <select id="sale-status-filter" class="text-sm border rounded-lg px-3 py-1.5" onchange="filterSales()">
+            <option value="all">전체 상태</option>
+            <option value="준비 중">준비 중</option>
+            <option value="진행 완료">진행 완료</option>
+            <option value="정산 완료">정산 완료</option>
+          </select>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium text-slate-500">세일명</th>
+              <th class="px-4 py-3 text-left font-medium text-slate-500">경매사</th>
+              <th class="px-4 py-3 text-left font-medium text-slate-500">일시</th>
+              <th class="px-4 py-3 text-center font-medium text-slate-500">상태</th>
+              <th class="px-4 py-3 text-right font-medium text-slate-500">총 Lot</th>
+              <th class="px-4 py-3 text-right font-medium text-slate-500">추급권 대상</th>
+              <th class="px-4 py-3 text-right font-medium text-slate-500">추급권료 합계</th>
+              <th class="px-4 py-3 text-center font-medium text-slate-500">신고 진행률</th>
+              <th class="px-4 py-3 text-center font-medium text-slate-500">상세</th>
+            </tr>
+          </thead>
+          <tbody id="sales-table" class="divide-y"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 세일 상세 (선택 시 표시) -->
+    <div id="sale-detail" class="hidden">
+      <div class="bg-white rounded-xl border overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b flex items-center justify-between">
+          <div>
+            <h2 class="font-bold text-slate-700" id="detail-sale-name"></h2>
+            <p class="text-sm text-slate-500" id="detail-sale-info"></p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="batchJudge()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">일괄 판별 실행</button>
+            <button onclick="batchReport()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">일괄 신고서 생성</button>
+            <button onclick="closeSaleDetail()" class="text-slate-400 hover:text-slate-600 px-3 py-2">✕ 닫기</button>
+          </div>
+        </div>
+
+        <!-- 세일 요약 카드 -->
+        <div class="grid grid-cols-4 gap-4 p-6 border-b bg-gray-50">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-slate-700" id="detail-total-lots">0</div>
+            <div class="text-xs text-slate-500">총 Lot 수</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600" id="detail-arr-lots">0</div>
+            <div class="text-xs text-slate-500">추급권 대상</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-teal-600" id="detail-arr-total">₩0</div>
+            <div class="text-xs text-slate-500">추급권료 합계</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-purple-600" id="detail-report-rate">0%</div>
+            <div class="text-xs text-slate-500">신고 진행률</div>
+          </div>
+        </div>
+
+        <!-- Lot 목록 -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-slate-500">Lot #</th>
+                <th class="px-4 py-3 text-left font-medium text-slate-500">작가</th>
+                <th class="px-4 py-3 text-left font-medium text-slate-500">작품명</th>
+                <th class="px-4 py-3 text-right font-medium text-slate-500">에스티메이트</th>
+                <th class="px-4 py-3 text-right font-medium text-slate-500">낙찰가</th>
+                <th class="px-4 py-3 text-center font-medium text-slate-500">낙찰 여부</th>
+                <th class="px-4 py-3 text-center font-medium text-slate-500">추급권</th>
+                <th class="px-4 py-3 text-right font-medium text-slate-500">추급권료</th>
+                <th class="px-4 py-3 text-center font-medium text-slate-500">신고</th>
+              </tr>
+            </thead>
+            <tbody id="lots-table" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 안내 -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+      <strong>참고:</strong> 세일 관리(A-09)는 경매사 전용 기능입니다. 갤러리 거래는 세일/Lot 개념 없이
+      <a href="transactions.html" class="underline">거래 관리</a> 페이지에서 개별 건으로 등록합니다.
+    </div>
+  </main>
+
+  <script src="js/arr-engine.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // 샘플 세일 데이터
+    const SALES_DATA = [
+      {
+        id: 'S001', name: '2027 봄 Major Works', auctionHouse: '서울옥션',
+        date: '2027-05-15', location: '서울옥션 강남센터', status: '진행 완료',
+        lots: [
+          { lot: 1, artist: '이우환', title: '점으로부터 No.780127', estLow: 30000000, estHigh: 50000000, hammer: 48000000, sold: true, arr: true, arrFee: 1070000, reported: '신고완료' },
+          { lot: 2, artist: '김환기', title: '어디서 무엇이 되어 다시 만나랴', estLow: 500000000, estHigh: 800000000, hammer: 720000000, sold: true, arr: true, arrFee: 4275000, reported: '신고완료' },
+          { lot: 3, artist: '박수근', title: '빨래터', estLow: 100000000, estHigh: 150000000, hammer: 132000000, sold: true, arr: false, arrFee: 0, reported: '-' },
+          { lot: 5, artist: '이중섭', title: '황소', estLow: 200000000, estHigh: 300000000, hammer: 280000000, sold: true, arr: true, arrFee: 2025000, reported: '납부완료' },
+          { lot: 7, artist: '권오상', title: 'New Structure 2027', estLow: 10000000, estHigh: 20000000, hammer: 15000000, sold: true, arr: false, arrFee: 0, reported: '-' },
+          { lot: 8, artist: '이배', title: 'Issu du feu', estLow: 20000000, estHigh: 30000000, hammer: 25000000, sold: true, arr: true, arrFee: 430000, reported: '신고완료' },
+          { lot: 10, artist: '서도호', title: 'Karma', estLow: 40000000, estHigh: 60000000, hammer: 0, sold: false, arr: false, arrFee: 0, reported: '-' },
+          { lot: 12, artist: '윤형근', title: 'Burnt Umber & Ultramarine', estLow: 50000000, estHigh: 80000000, hammer: 65000000, sold: true, arr: true, arrFee: 1220000, reported: '미신고' },
+          { lot: 15, artist: '정상화', title: 'Untitled 2024-5-3', estLow: 15000000, estHigh: 25000000, hammer: 22000000, sold: true, arr: true, arrFee: 393000, reported: '미신고' },
+          { lot: 18, artist: '이건용', title: 'Bodyscape 76-1', estLow: 8000000, estHigh: 12000000, hammer: 11000000, sold: true, arr: true, arrFee: 333000, reported: '신고완료' }
+        ]
+      },
+      {
+        id: 'S002', name: '2027 봄 Korean Art', auctionHouse: '서울옥션',
+        date: '2027-05-16', location: '서울옥션 강남센터', status: '진행 완료',
+        lots: [
+          { lot: 1, artist: '박서보', title: '묘법 No.890607', estLow: 20000000, estHigh: 30000000, hammer: 28000000, sold: true, arr: true, arrFee: 460000, reported: '신고완료' },
+          { lot: 3, artist: '하종현', title: '접합 2024-75', estLow: 10000000, estHigh: 15000000, hammer: 13000000, sold: true, arr: true, arrFee: 369000, reported: '미신고' },
+          { lot: 5, artist: '전광영', title: 'Aggregation 27-AP031', estLow: 15000000, estHigh: 20000000, hammer: 18000000, sold: true, arr: true, arrFee: 390000, reported: '미신고' },
+          { lot: 7, artist: '김창열', title: '물방울', estLow: 50000000, estHigh: 70000000, hammer: 0, sold: false, arr: false, arrFee: 0, reported: '-' },
+          { lot: 8, artist: '이강소', title: 'From an Island-21', estLow: 5000000, estHigh: 8000000, hammer: 7000000, sold: true, arr: true, arrFee: 231000, reported: '신고완료' }
+        ]
+      },
+      {
+        id: 'S003', name: '2027 여름 Contemporary', auctionHouse: '서울옥션',
+        date: '2027-07-20', location: '서울옥션 강남센터', status: '준비 중',
+        lots: [
+          { lot: 1, artist: '(미정)', title: '출품 접수 중', estLow: 0, estHigh: 0, hammer: 0, sold: false, arr: false, arrFee: 0, reported: '-' }
+        ]
+      }
+    ];
+
+    function formatW(n) {
+      if (!n) return '-';
+      if (n >= 100000000) return `${(n/100000000).toFixed(1)}억`;
+      if (n >= 10000) return `${(n/10000).toLocaleString()}만`;
+      return `₩${n.toLocaleString()}`;
+    }
+
+    function getStatusBadge(status) {
+      const colors = { '준비 중': 'bg-yellow-100 text-yellow-800', '진행 완료': 'bg-blue-100 text-blue-800', '정산 완료': 'bg-green-100 text-green-800' };
+      return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}">${status}</span>`;
+    }
+
+    function getReportBadge(s) {
+      const c = { '신고완료': 'bg-blue-100 text-blue-700', '납부완료': 'bg-green-100 text-green-700', '미신고': 'bg-red-100 text-red-700', '-': 'bg-gray-100 text-gray-400' };
+      return `<span class="px-2 py-0.5 rounded-full text-xs font-medium ${c[s] || 'bg-gray-100'}">${s}</span>`;
+    }
+
+    function renderSalesTable() {
+      const filter = document.getElementById('sale-status-filter').value;
+      const sales = filter === 'all' ? SALES_DATA : SALES_DATA.filter(s => s.status === filter);
+
+      document.getElementById('sales-table').innerHTML = sales.map(s => {
+        const totalLots = s.lots.length;
+        const arrLots = s.lots.filter(l => l.arr).length;
+        const arrTotal = s.lots.reduce((sum, l) => sum + l.arrFee, 0);
+        const reportedCount = s.lots.filter(l => l.reported === '신고완료' || l.reported === '납부완료').length;
+        const reportRate = arrLots > 0 ? Math.round(reportedCount / arrLots * 100) : 0;
+
+        return `<tr class="hover:bg-gray-50 cursor-pointer">
+          <td class="px-4 py-3 font-medium text-slate-800">${s.name}</td>
+          <td class="px-4 py-3 text-slate-600">${s.auctionHouse}</td>
+          <td class="px-4 py-3 text-slate-600">${s.date}</td>
+          <td class="px-4 py-3 text-center">${getStatusBadge(s.status)}</td>
+          <td class="px-4 py-3 text-right">${totalLots}건</td>
+          <td class="px-4 py-3 text-right font-medium text-blue-600">${arrLots}건</td>
+          <td class="px-4 py-3 text-right font-medium">${arrTotal > 0 ? '₩' + arrTotal.toLocaleString() : '-'}</td>
+          <td class="px-4 py-3 text-center">
+            <div class="w-full bg-gray-200 rounded-full h-2 inline-block" style="width:80px">
+              <div class="bg-teal-500 h-2 rounded-full" style="width:${reportRate}%"></div>
+            </div>
+            <span class="text-xs text-slate-500 ml-1">${reportRate}%</span>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <button onclick="showSaleDetail('${s.id}')" class="text-teal-600 hover:text-teal-800 text-sm font-medium">상세 →</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filterSales() { renderSalesTable(); }
+
+    function showSaleDetail(saleId) {
+      const sale = SALES_DATA.find(s => s.id === saleId);
+      if (!sale) return;
+
+      document.getElementById('sale-detail').classList.remove('hidden');
+      document.getElementById('detail-sale-name').textContent = sale.name;
+      document.getElementById('detail-sale-info').textContent = `${sale.auctionHouse} | ${sale.date} | ${sale.location}`;
+
+      const totalLots = sale.lots.length;
+      const arrLots = sale.lots.filter(l => l.arr).length;
+      const arrTotal = sale.lots.reduce((sum, l) => sum + l.arrFee, 0);
+      const reported = sale.lots.filter(l => l.reported === '신고완료' || l.reported === '납부완료').length;
+      const reportRate = arrLots > 0 ? Math.round(reported / arrLots * 100) : 0;
+
+      document.getElementById('detail-total-lots').textContent = totalLots;
+      document.getElementById('detail-arr-lots').textContent = arrLots;
+      document.getElementById('detail-arr-total').textContent = '₩' + arrTotal.toLocaleString();
+      document.getElementById('detail-report-rate').textContent = reportRate + '%';
+
+      document.getElementById('lots-table').innerHTML = sale.lots.map(l => `
+        <tr class="hover:bg-gray-50 ${l.arr ? 'bg-blue-50/30' : ''}">
+          <td class="px-4 py-3 font-medium">Lot #${l.lot}</td>
+          <td class="px-4 py-3">${l.artist}</td>
+          <td class="px-4 py-3 text-slate-600">${l.title}</td>
+          <td class="px-4 py-3 text-right text-slate-500">${l.estLow ? formatW(l.estLow) + '~' + formatW(l.estHigh) : '-'}</td>
+          <td class="px-4 py-3 text-right font-medium">${l.hammer ? '₩' + l.hammer.toLocaleString() : '-'}</td>
+          <td class="px-4 py-3 text-center">${l.sold ? '<span class="text-green-600 font-medium">낙찰</span>' : '<span class="text-gray-400">유찰</span>'}</td>
+          <td class="px-4 py-3 text-center">${l.arr ? '<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">적용 ○</span>' : '<span class="text-gray-400 text-xs">-</span>'}</td>
+          <td class="px-4 py-3 text-right">${l.arrFee ? '₩' + l.arrFee.toLocaleString() : '-'}</td>
+          <td class="px-4 py-3 text-center">${getReportBadge(l.reported)}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('sale-detail').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function closeSaleDetail() {
+      document.getElementById('sale-detail').classList.add('hidden');
+    }
+
+    function batchJudge() {
+      alert('일괄 판별 실행 — 세일 내 모든 Lot에 대해 A-01 자동 판별을 수행합니다.\n(데모: 이미 판별 완료 상태입니다)');
+    }
+
+    function batchReport() {
+      alert('일괄 신고서 생성 — 추급권 대상 Lot의 신고서를 세일 단위로 묶어 생성합니다.\n(데모: A-04 연동)');
+    }
+
+    // 초기화
+    document.getElementById('nav').innerHTML = getNavHTML('sales');
+    renderSalesTable();
+  </script>
+</body>
+</html>
